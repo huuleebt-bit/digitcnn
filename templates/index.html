@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nhận diện chữ số viết tay</title>
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        body{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background:#f1f3f6;
+            padding:20px;
+        }
+
+        .container{
+            width:1200px;
+            margin:auto;
+            background:white;
+            border-radius:20px;
+            padding:20px;
+            box-shadow:0 0 20px rgba(0,0,0,0.12);
+        }
+
+        h1{
+            text-align:center;
+            margin-bottom:10px;
+            color:#222;
+        }
+
+        h3{
+            text-align:center;
+            color:#666;
+            margin-bottom:20px;
+        }
+
+        /* ========================= */
+        /* TABS */
+        /* ========================= */
+
+        .tabs{
+            display:flex;
+            margin-bottom:20px;
+        }
+
+        .tab-button{
+            flex:1;
+            padding:15px;
+            border:none;
+            background:#ddd;
+            font-size:18px;
+            cursor:pointer;
+            transition:0.3s;
+        }
+
+        .tab-button.active{
+            background:#007bff;
+            color:white;
+        }
+
+        .tab-content{
+            display:none;
+        }
+
+        .tab-content.active{
+            display:block;
+        }
+
+        /* ========================= */
+        /* TWO COLUMN */
+        /* ========================= */
+
+        .content-grid{
+            display:grid;
+            grid-template-columns: 1fr 1fr;
+            gap:25px;
+        }
+
+        .panel{
+            background:#fafafa;
+            border-radius:15px;
+            padding:20px;
+            min-height:500px;
+            box-shadow:0 0 10px rgba(0,0,0,0.08);
+        }
+
+        h2{
+            text-align:center;
+            margin-bottom:20px;
+            color:#333;
+        }
+
+        form{
+            text-align:center;
+        }
+
+        input[type=file]{
+            margin:20px;
+        }
+
+        button{
+            padding:12px 24px;
+            border:none;
+            border-radius:10px;
+            background:#007bff;
+            color:white;
+            font-size:16px;
+            cursor:pointer;
+            margin:10px;
+            transition:0.3s;
+        }
+
+        button:hover{
+            background:#0056b3;
+        }
+
+        .preview-image{
+            width:300px;
+            height:300px;
+            object-fit:contain;
+            border:2px solid #ccc;
+            border-radius:10px;
+            margin-top:20px;
+            background:white;
+        }
+
+        .result-box{
+            margin-top:20px;
+            padding:20px;
+            border-radius:12px;
+            background:white;
+            font-size:24px;
+            text-align:center;
+            box-shadow:0 0 10px rgba(0,0,0,0.08);
+        }
+
+        .result-box b{
+            color:#007bff;
+        }
+
+        .feedback-box{
+            margin-top:30px;
+            text-align:center;
+        }
+
+        .feedback-input{
+            width:220px;
+            padding:12px;
+            font-size:18px;
+            border-radius:10px;
+            border:1px solid #ccc;
+            text-align:center;
+        }
+
+        /* ========================= */
+        /* CANVAS */
+        /* ========================= */
+
+        canvas{
+            border:3px solid #333;
+            border-radius:10px;
+            background:white;
+            display:block;
+            margin:auto;
+            cursor:crosshair;
+        }
+
+        /* ========================= */
+        /* FOOTER */
+        /* ========================= */
+
+        footer{
+            margin-top:40px;
+            text-align:center;
+            color:#555;
+            line-height:1.8;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Nhận diện chữ số viết tay</h1>
+    <h3>Mô hình CNN + Bộ dữ liệu MNIST + Flask</h3>
+
+    <!-- ========================= -->
+    <!-- TABS -->
+    <!-- ========================= -->
+
+    <div class="tabs">
+        <button
+            class="tab-button active"
+            onclick="openTab('uploadTab', this)"
+        >
+            Tải ảnh lên
+        </button>
+
+        <button
+            class="tab-button"
+            onclick="openTab('drawTab', this)"
+        >
+            Vẽ chữ số
+        </button>
+    </div>
+
+    <!-- ========================= -->
+    <!-- UPLOAD TAB -->
+    <!-- ========================= -->
+
+    <div id="uploadTab" class="tab-content active">
+        <div class="content-grid">
+
+            <!-- TRÁI -->
+            <div class="panel">
+                <h2>Tải ảnh lên</h2>
+                <form
+                    action="/predict"
+                    method="POST"
+                    enctype="multipart/form-data"
+                >
+                    <input
+                        type="file"
+                        name="image"
+                        id="imageInput"
+                        required
+                        onchange="previewImage(event)"
+                    >
+
+                    <div style="text-align:center;">
+                        <img
+                            id="preview"
+                            class="preview-image"
+                            src="{% if uploaded_image %}data:image/png;base64,{{ uploaded_image }}{% endif %}"
+                        >
+                        <br>
+                        <button type="submit">
+                            Dự đoán kết quả
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- PHẢI -->
+            <div class="panel">
+                <h2>Kết quả dự đoán</h2>
+
+                {% if result is not none %}
+                <div class="result-box">
+                    <p>
+                        Chữ số dự đoán:
+                        <b>{{ result }}</b>
+                    </p>
+                    <br>
+                    <p>
+                        Độ tin cậy:
+                        <b>{{ confidence }}%</b>
+                    </p>
+                </div>
+                {% else %}
+                <div class="result-box">
+                    Đang chờ tải ảnh...
+                </div>
+                {% endif %}
+
+                <!-- PHẢN HỒI -->
+                <div class="feedback-box">
+                    <h3>Kết quả bị sai?</h3>
+                    <form action="/feedback" method="POST">
+                        <input
+                            type="number"
+                            name="correct_digit"
+                            min="0"
+                            max="9"
+                            required
+                            placeholder="Nhập chữ số đúng"
+                            class="feedback-input"
+                        >
+                        <br>
+                        <button type="submit">
+                            Gửi phản hồi
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================= -->
+    <!-- DRAW TAB -->
+    <!-- ========================= -->
+
+    <div id="drawTab" class="tab-content">
+        <div class="content-grid">
+
+            <!-- TRÁI -->
+            <div class="panel">
+                <h2>Vẽ chữ số</h2>
+                <canvas
+                    id="canvas"
+                    width="300"
+                    height="300"
+                ></canvas>
+
+                <div style="text-align:center; margin-top:20px;">
+                    <button onclick="clearCanvas()">
+                        Xóa bảng
+                    </button>
+                    <button onclick="predictCanvas()">
+                        Dự đoán
+                    </button>
+                </div>
+            </div>
+
+            <!-- PHẢI -->
+            <div class="panel">
+                <h2>Kết quả dự đoán</h2>
+                <div
+                    class="result-box"
+                    id="drawResult"
+                >
+                    Đang chờ bạn vẽ...
+                </div>
+
+                <!-- PHẢN HỒI -->
+                <div class="feedback-box">
+                    <h3>Kết quả bị sai?</h3>
+                    <form action="/feedback" method="POST">
+                        <input
+                            type="number"
+                            name="correct_digit"
+                            min="0"
+                            max="9"
+                            required
+                            placeholder="Nhập chữ số đúng"
+                            class="feedback-input"
+                        >
+                        <br>
+                        <button type="submit">
+                            Gửi phản hồi
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================= -->
+    <!-- FOOTER -->
+    <!-- ========================= -->
+
+    <footer>
+        <b>MÔN HỌC:</b> Mạng Thần Kinh Nhân Tạo
+        <br>
+        <b>Đề tài:</b> Nhận diện chữ số viết tay bằng mô hình CNN
+        <br><br>
+        <b>Thành viên thực hiện:</b>
+        <br>
+        Nguyễn Hữu Lễ — MSHV: 925000367
+        <br>
+        Nguyễn Quốc Thắng — MSHV: 925000357
+        <br>
+        Nguyễn Thị Yến — MSHV: 926000003
+    </footer>
+
+</div>
+
+<script>
+    // =========================
+    // HỆ THỐNG CHUYỂN TAB
+    // =========================
+
+    function openTab(tabId, element){
+        let tabs = document.getElementsByClassName("tab-content");
+        for(let tab of tabs){
+            tab.classList.remove("active");
+        }
+
+        let buttons = document.getElementsByClassName("tab-button");
+        for(let btn of buttons){
+            btn.classList.remove("active");
+        }
+
+        document.getElementById(tabId).classList.add("active");
+        element.classList.add("active");
+    }
+
+    // =========================
+    // XEM TRƯỚC ẢNH
+    // =========================
+
+    function previewImage(event){
+        const image = document.getElementById("preview");
+        image.src = URL.createObjectURL(event.target.files[0]);
+    }
+
+    // =========================
+    // XỬ LÝ CANVAS (VẼ)
+    // =========================
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+
+    // Tạo nền trắng
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Cấu hình nét vẽ
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 20;
+    ctx.lineCap = "round";
+
+    // Sự kiện chuột (Máy tính)
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mouseup", stopDraw);
+    canvas.addEventListener("mouseleave", stopDraw);
+    canvas.addEventListener("mousemove", draw);
+
+    // Sự kiện cảm ứng (Điện thoại)
+    canvas.addEventListener("touchstart", touchStart, { passive:false });
+    canvas.addEventListener("touchmove", touchDraw, { passive:false });
+    canvas.addEventListener("touchend", stopDraw);
+
+    function getTouchPos(touch){
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top
+        };
+    }
+
+    function touchStart(e){
+        e.preventDefault();
+        drawing = true;
+        const pos = getTouchPos(e.touches[0]);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    function touchDraw(e){
+        e.preventDefault();
+        if(!drawing) return;
+        const pos = getTouchPos(e.touches[0]);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    }
+
+    function startDraw(e){
+        drawing = true;
+        ctx.beginPath();
+        ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function stopDraw(){
+        drawing = false;
+    }
+
+    function draw(e){
+        if(!drawing) return;
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+    }
+
+    // Xóa bảng vẽ
+    function clearCanvas(){
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        document.getElementById("drawResult").innerHTML = "Đang chờ bạn vẽ...";
+    }
+
+    // Gửi dữ liệu vẽ lên Server dự đoán
+    function predictCanvas(){
+        let image = canvas.toDataURL("image/png");
+        fetch("/predict_canvas", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                image: image
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("drawResult").innerHTML = 
+                "<p>Chữ số dự đoán: <b>" + data.result + "</b></p><br>" +
+                "<p>Độ tin cậy: <b>" + data.confidence + "%</b></p>";
+        });
+    }
+
+    // =========================
+// SAVE CURRENT TAB
+// =========================
+
+function saveCurrentTab(tabId){
+
+    localStorage.setItem(
+        "activeTab",
+        tabId
+    );
+}
+
+// =========================
+// OVERRIDE openTab
+// =========================
+
+function openTab(tabId, element){
+
+    let tabs =
+        document.getElementsByClassName(
+            "tab-content"
+        );
+
+    for(let tab of tabs){
+
+        tab.classList.remove("active");
+    }
+
+    let buttons =
+        document.getElementsByClassName(
+            "tab-button"
+        );
+
+    for(let btn of buttons){
+
+        btn.classList.remove("active");
+    }
+
+    document.getElementById(
+        tabId
+    ).classList.add("active");
+
+    element.classList.add("active");
+
+    // SAVE TAB
+    saveCurrentTab(tabId);
+}
+
+// =========================
+// RESTORE TAB AFTER RELOAD
+// =========================
+
+window.onload = function(){
+
+    const activeTab =
+        localStorage.getItem(
+            "activeTab"
+        );
+
+    if(activeTab){
+
+        const button =
+            document.querySelector(
+                `[onclick*="${activeTab}"]`
+            );
+
+        if(button){
+
+            openTab(
+                activeTab,
+                button
+            );
+        }
+    }
+}
+</script>
+
+</body>
+</html>
